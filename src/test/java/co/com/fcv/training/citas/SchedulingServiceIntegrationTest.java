@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
+import java.time.Duration;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import java.time.*;
@@ -18,7 +19,8 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest
 @Testcontainers
 class SchedulingServiceIntegrationTest {
-    @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");
+    @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
+            .withStartupTimeout(Duration.ofMinutes(5)).withStartupTimeoutSeconds(300);
     @DynamicPropertySource static void properties(DynamicPropertyRegistry r) {
         r.add("spring.datasource.url", MYSQL::getJdbcUrl); r.add("spring.datasource.username", MYSQL::getUsername); r.add("spring.datasource.password", MYSQL::getPassword);
         r.add("app.jwt.access-secret", () -> "a".repeat(40)); r.add("app.jwt.refresh-secret", () -> "b".repeat(40)); r.add("app.cookie.secure", () -> true); r.add("app.cookie.same-site", () -> "None");

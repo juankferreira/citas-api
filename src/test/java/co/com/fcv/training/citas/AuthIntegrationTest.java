@@ -25,6 +25,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import java.util.UUID;
 import java.time.Instant;
+import java.time.Duration;
 import java.nio.charset.StandardCharsets;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.concurrent.*;
@@ -37,7 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 @Import(AuthIntegrationTest.RoleProbe.class)
 class AuthIntegrationTest {
-    @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");
+    @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
+            .withStartupTimeout(Duration.ofMinutes(5)).withStartupTimeoutSeconds(300);
     private static final String ACCESS_KEY = UUID.randomUUID().toString() + UUID.randomUUID();
     private static final String REFRESH_KEY = UUID.randomUUID().toString() + UUID.randomUUID();
 
@@ -75,6 +77,68 @@ class AuthIntegrationTest {
                 """.formatted(uniqueDoc(), email, planId))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         Long userId = mapper.readTree(body).get("id").asLong();
         assertThat(jdbc.queryForObject("select count(*) from user_insurance_affiliations where user_id=? and plan_id=? and is_current=true", Integer.class, userId, planId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from user_insurance_affiliations a join eps_plans p on p.id=a.plan_id where a.user_id=? and a.plan_id=?", Integer.class, userId, planId)).isEqualTo(1);
+    }
+
+    @Test void activePlansCatalogIsPublicAndExcludesInactivePlans() throws Exception {
+        Long inactivePlanId = jdbc.queryForList("select id from eps_plans where active=false limit 1", Long.class)
+                .stream().findFirst().orElse(null);
+        boolean deactivateForTest = inactivePlanId == null;
+        if (deactivateForTest) {
+            inactivePlanId = jdbc.queryForObject("select id from eps_plans where active=true limit 1", Long.class);
+            jdbc.update("update eps_plans set active=false where id=?", inactivePlanId);
+        }
+        try {
+            String catalog = mvc.perform(get("/api/v1/catalogs/plans"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            var returnedPlanIds = mapper.readTree(catalog).findValuesAsText("id");
+            var activePlanIds = jdbc.queryForList("select cast(id as char) from eps_plans where active=true", String.class);
+            assertThat(returnedPlanIds).containsExactlyInAnyOrderElementsOf(activePlanIds);
+            assertThat(returnedPlanIds).doesNotContain(inactivePlanId.toString());
+            mvc.perform(get("/api/v1/catalogs/locations")).andExpect(status().isUnauthorized());
+        } finally {
+            if (deactivateForTest) jdbc.update("update eps_plans set active=true where id=?", inactivePlanId);
+        }
+    }
+
+    @Test void registrationWithoutPlanCreatesNoAffiliation() throws Exception {
+        String email = uniqueEmail();
+        String body = mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content(registration(email, uniqueDoc())))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        Long userId = mapper.readTree(body).get("id").asLong();
+
+        assertThat(jdbc.queryForObject("select count(*) from user_insurance_affiliations where user_id=?", Integer.class, userId)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from information_schema.columns where table_schema=database() and table_name='users' and column_name in ('eps_name','plan_name','insurance_plan_name')", Integer.class)).isZero();
+    }
+
+    @Test void registrationRejectsMissingOrInactiveInsurancePlanWithoutPartialUser() throws Exception {
+        Long inactivePlanId = jdbc.queryForList("select id from eps_plans where active=false limit 1", Long.class)
+                .stream().findFirst().orElse(null);
+        boolean deactivateForTest = inactivePlanId == null;
+        if (inactivePlanId == null) {
+            inactivePlanId = jdbc.queryForObject("select id from eps_plans where active=true limit 1", Long.class);
+            jdbc.update("update eps_plans set active=false where id=?", inactivePlanId);
+        }
+        try {
+            String missingEmail = uniqueEmail();
+            mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(registrationWithPlan(missingEmail, uniqueDoc(), Long.MAX_VALUE)))
+                    .andExpect(status().isNotFound()).andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+            assertThat(jdbc.queryForObject("select count(*) from users where email=?", Integer.class, missingEmail)).isZero();
+
+            String inactiveEmail = uniqueEmail();
+            mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(registrationWithPlan(inactiveEmail, uniqueDoc(), inactivePlanId)))
+                    .andExpect(status().isNotFound()).andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+            assertThat(jdbc.queryForObject("select count(*) from users where email=?", Integer.class, inactiveEmail)).isZero();
+        } finally {
+            if (deactivateForTest) jdbc.update("update eps_plans set active=true where id=?", inactivePlanId);
+        }
+    }
+
+    private String registrationWithPlan(String email, String document, Long planId) {
+        return """
+            {"firstName":"Ana","lastName":"Plan","documentType":"CC","documentNumber":"%s","email":"%s","phone":"3000000000","password":"SyntheticPass123!","insurancePlanId":%d}
+            """.formatted(document, email, planId);
     }
     private org.springframework.test.web.servlet.ResultActions login(String email, String password) throws Exception {
         return mvc.perform(post("/api/v1/auth/login").header("X-Requested-With", "XMLHttpRequest")

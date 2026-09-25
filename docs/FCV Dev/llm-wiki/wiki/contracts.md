@@ -10,7 +10,7 @@ El contrato inicial cubre solamente autenticación bajo `/api/v1/auth`:
 
 | Operación | Entrada | Éxito |
 |---|---|---|
-| `POST /register` | JSON `firstName`, `lastName`, `documentType`, `documentNumber`, `email`, `phone`, `password` | `201`, JSON con `id`, datos públicos y rol `USER`, sin contraseña |
+| `POST /register` | JSON `firstName`, `lastName`, `documentType`, `documentNumber`, `email`, `phone`, `password`; `insurancePlanId` opcional | `201`, JSON con `id`, datos públicos y rol `USER`, sin contraseña |
 | `POST /login` | JSON `email`, `password` | `200`, JSON `accessToken`, `tokenType=Bearer`, `expiresIn`; cookie `refresh_token` |
 | `POST /refresh` | Cookie `refresh_token` | `200`, nuevo access en JSON y nueva cookie refresh; la anterior se revoca |
 | `POST /logout` | Cookie `refresh_token` | `204`, revocación de la sesión y cookie borrada |
@@ -37,7 +37,8 @@ Todos los recursos S3 usan `/api/v1`, JWT access en `Authorization: Bearer` y JS
 
 | Recurso | Operación | Rol |
 |---|---|---|
-| Catálogos | `GET /catalogs/{locations|appointment-statuses|roles|regimes|plans}` | autenticado |
+| Catálogos protegidos | `GET /catalogs/{locations|appointment-statuses|roles|regimes}` | autenticado |
+| Planes activos | `GET /catalogs/plans` | público, solo lectura |
 | Especialidades disponibles | `GET /specialties` | autenticado |
 | Especialidades ADMIN | `GET|POST|PATCH /admin/specialties[/{id}]` | ADMIN |
 | Profesionales | `POST /admin/professionals`; `PUT /admin/professionals/{id}/specialties|locations`; `PATCH /admin/professionals/{id}/active` | ADMIN |
@@ -55,3 +56,7 @@ Errores de validación usan `400`; recursos o relaciones inexistentes usan `404`
 `citas-web` consume las cuatro operaciones de autenticación directamente con `VITE_API_URL` (valor local: `http://localhost:8080`). Envía `credentials: include` y `X-Requested-With: XMLHttpRequest` en login, refresh y logout. El access JWT permanece solo en memoria; el refresh se mantiene en cookie `HttpOnly` y se rota al restaurar la sesión. La interfaz no registra ni muestra tokens o contraseñas.
 
 El CORS permite exclusivamente `FRONTEND_ORIGIN`, métodos `POST`, `GET`, `OPTIONS`, encabezados `Content-Type`, `Authorization`, `X-Requested-With` y credenciales. La base de referencia ya existente utiliza `BIGINT` para usuarios, `roles.code` y `refresh_tokens`; Flyway hace baseline en versión 0 y `V1` es compatible con ese esquema 3FN.
+
+## DECISIÓN — 2026-09-24 · Plan opcional al registrar USER
+
+`GET /api/v1/catalogs/plans` es público y devuelve únicamente planes activos para que el visitante pueda elegir durante `POST /api/v1/auth/register`. El registro acepta `insurancePlanId` opcional; cuando se envía, debe identificar un plan activo y la API crea la afiliación usando las claves foráneas existentes. Un ID inexistente o inactivo responde `404` Problem Details y no persiste una cuenta parcial. Sin `insurancePlanId`, el usuario se registra sin afiliación. EPS y nombre de plan permanecen normalizados fuera de `users`.

@@ -2,6 +2,7 @@ package co.com.fcv.training.citas.adapter.web;
 
 import co.com.fcv.training.citas.application.AuthFailure;
 import co.com.fcv.training.citas.application.DuplicateIdentity;
+import co.com.fcv.training.citas.application.InsurancePlanNotFound;
 import co.com.fcv.training.citas.application.SchedulingFailure;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,11 @@ class ApiErrors {
     @ExceptionHandler(AuthFailure.class)
     ResponseEntity<ProblemDetail> unauthorized(AuthFailure ignored) {
         return problem(HttpStatus.UNAUTHORIZED, "Credenciales o sesión inválidas");
+    }
+
+    @ExceptionHandler(InsurancePlanNotFound.class)
+    ResponseEntity<ProblemDetail> insurancePlanNotFound(InsurancePlanNotFound ignored) {
+        return problem(HttpStatus.NOT_FOUND, "Plan de afiliación no disponible");
     }
 
     @ExceptionHandler(SchedulingFailure.class)
