@@ -3,10 +3,17 @@ set -eu
 
 for file in $(git diff --cached --name-only --diff-filter=ACM); do
   [ "$file" = ".env.example" ] && continue
-  if git show ":$file" | grep -Eiq '(JWT_(ACCESS|REFRESH)_SECRET|DB_PASSWORD|MYSQL_ROOT_PASSWORD|OAUTH_CLIENT_SECRET)[[:space:]]*[:=][[:space:]]*["'"'][^$][^"'"']+'; then
+  if git show ":$file" | grep -Eiq '(JWT_(ACCESS|REFRESH)_SECRET|DB_PASSWORD|MYSQL_ROOT_PASSWORD|OAUTH_CLIENT_SECRET)[[:space:]]*[:=][[:space:]]*[^$[:space:]]+'; then
     printf '%s\n' "Se detectó un secreto potencial en $file. Retíralo antes de confirmar."
     exit 1
   fi
 done
 
-mvn test
+if command -v mvn >/dev/null 2>&1; then
+  mvn test
+elif command -v docker >/dev/null 2>&1; then
+  docker compose -f compose.test.yml run --rm api-test mvn test
+else
+  printf '%s\n' 'Maven no está instalado y Docker no está disponible; no se puede validar el backend.'
+  exit 1
+fi

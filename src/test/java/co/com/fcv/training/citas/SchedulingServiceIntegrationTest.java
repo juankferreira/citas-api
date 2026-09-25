@@ -51,9 +51,21 @@ class SchedulingServiceIntegrationTest {
         Long patient=user("patient-"+suffix+"@example.test","U"+suffix); Long admin=user("admin-"+suffix+"@example.test","A"+suffix);
         SchedulingService.Appointment appointment=scheduling.reserve(patient,professional,location,specialty,LocalDateTime.of(date,LocalTime.of(8,0)),"Prueba");
         assertThat(appointment.status()).isEqualTo("REQUESTED");
+        assertThat(count("select count(*) from appointment_status_history h join appointment_statuses s on s.id=h.status_id where h.appointment_id=? and s.code='REQUESTED' and h.changed_by_user_id=? and h.change_source='USER'",appointment.id(),patient)).isEqualTo(1);
+        Long blockId=jdbc.queryForObject("select id from availability_blocks where professional_id=? and available_date=?",Long.class,professional,date);
+        assertThatThrownBy(()->scheduling.deleteBlock(owner,blockId)).hasMessageContaining("citas comprometidas");
+        assertThatThrownBy(()->scheduling.decide(admin,appointment.id(),"REJECT"," ")).hasMessageContaining("Motivo de rechazo obligatorio");
         assertThatThrownBy(() -> scheduling.reserve(patient,professional,location,specialty,LocalDateTime.of(date,LocalTime.of(8,0)),"Duplicada")).hasMessageContaining("Franja");
         assertThat(scheduling.decide(admin,appointment.id(),"REJECT","Sin disponibilidad clínica").status()).isEqualTo("REJECTED");
+        assertThat(count("select count(*) from appointment_status_history h join appointment_statuses s on s.id=h.status_id where h.appointment_id=? and s.code='REJECTED' and h.changed_by_user_id=? and h.change_source='ADMIN' and h.reason='Sin disponibilidad clínica'",appointment.id(),admin)).isEqualTo(1);
         assertThat(scheduling.availability(location,specialty,professional,date)).anyMatch(a -> a.startAt().equals(LocalDateTime.of(date,LocalTime.of(8,0))));
+    }
+    @Test void specialtiesOnlyAcceptThirtyOrSixtyMinuteDurations() {
+        String suffix=UUID.randomUUID().toString();
+        assertThatThrownBy(()->scheduling.createSpecialty("BAD"+suffix,"Duración inválida",45,true))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("30 o 60");
+        assertThat(scheduling.createSpecialty("THR"+suffix,"Treinta",30,true).durationMinutes()).isEqualTo(30);
+        assertThat(scheduling.createSpecialty("SIX"+suffix,"Sesenta",60,false).durationMinutes()).isEqualTo(60);
     }
     @Test void concurrentReservationsLockSharedSlotsAndReturnConflictForLoser() throws Exception {
         String suffix=UUID.randomUUID().toString();
