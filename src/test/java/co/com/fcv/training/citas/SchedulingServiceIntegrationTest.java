@@ -51,6 +51,7 @@ class SchedulingServiceIntegrationTest {
         Long patient=user("patient-"+suffix+"@example.test","U"+suffix); Long admin=user("admin-"+suffix+"@example.test","A"+suffix);
         SchedulingService.Appointment appointment=scheduling.reserve(patient,professional,location,specialty,LocalDateTime.of(date,LocalTime.of(8,0)),"Prueba");
         assertThat(appointment.status()).isEqualTo("REQUESTED");
+        assertThat(scheduling.pending()).anySatisfy(item -> assertThat(item).containsKeys("patientName","professionalName","specialtyName","locationName","durationMinutes","startAt","endAt"));
         assertThat(count("select count(*) from appointment_status_history h join appointment_statuses s on s.id=h.status_id where h.appointment_id=? and s.code='REQUESTED' and h.changed_by_user_id=? and h.change_source='USER'",appointment.id(),patient)).isEqualTo(1);
         Long blockId=jdbc.queryForObject("select id from availability_blocks where professional_id=? and available_date=?",Long.class,professional,date);
         assertThatThrownBy(()->scheduling.deleteBlock(owner,blockId)).hasMessageContaining("citas comprometidas");

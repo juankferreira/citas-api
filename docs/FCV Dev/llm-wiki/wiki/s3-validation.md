@@ -29,6 +29,10 @@ Fecha de actualización: 2026-09-25.
 
 Los hooks versionados están configurados con `core.hooksPath=.githooks` en ambos repositorios. La prueba controlada de secreto ficticio se intentó en backend: antes de configurar el path, Git permitió un commit temporal, que fue retirado localmente sin publicarlo; después de configurarlo, Git intentó ejecutar el hook pero Git Bash falló antes de evaluarlo con `couldn't create signal pipe, Win32 error 5`. Por ello la evidencia FAIL/PASS permanece pendiente y debe repetirse en una terminal Windows sin esa restricción.
 
+## Corrección de contrato cross-repo
+
+La interfaz profesional transforma el contrato REST de bloques (`date`, `start`, `end`) al formato usado por el calendario y envía `date`, `startTime` y `endTime` al crear un bloque. La consulta ADMIN de solicitudes pendientes entrega nombres inequívocos para paciente, profesional, especialidad, sede, duración e intervalo. Estas correcciones tienen pruebas de cliente y una aserción de integración backend; su ejecución debe incluirse en la siguiente validación completa.
+
 ## Regla de cierre
 
 Una prueba presente en el repositorio no equivale a evidencia de cierre: las HU S3 permanecen en progreso hasta que las pruebas backend y la validación cross-repo con Docker tengan resultado PASS registrado.
