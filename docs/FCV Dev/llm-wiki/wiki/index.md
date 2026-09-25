@@ -1,6 +1,6 @@
 # Índice de la LLM Wiki
 
-Última actualización: 2026-09-22. El corte backend de identidad (HU-005/006/007) tiene implementación y contrato REST inicial. El frontend React/Vite está importado y contiene trabajo local de integración auth pendiente de verificación. Las demás capacidades siguen sin contrato final.
+Última actualización: 2026-09-25. El corte S3 incorpora afiliación inicial opcional y reserva concurrente en código. El frontend React/Vite superó typecheck, pruebas y build; el cierre backend y cross-repo sigue pendiente de un entorno con Maven y Docker disponibles.
 
 ## Lectura recomendada
 
@@ -14,6 +14,7 @@
 8. [Preferencias](preferences.md)
 9. [Trazabilidad](traceability.md)
 10. [Subagentes y delegación](subagents.md)
+11. [Validación S3](s3-validation.md)
 
 ## Gobierno
 

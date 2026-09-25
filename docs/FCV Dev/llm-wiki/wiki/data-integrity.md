@@ -4,9 +4,13 @@
 
 El diseño debe alcanzar 3FN, resolver relaciones N:M con tablas puente, evitar duplicación de catálogos y justificar claves, índices, snapshots, auditoría y prevención de doble reserva.
 
-## PREGUNTA ABIERTA
+## DECISIÓN — 2026-09-25 · Integridad del corte S3
 
-La estrategia concreta de concurrencia, retención de slots, zona horaria y representación de fechas aún no está aprobada.
+La agenda usa la zona de negocio `America/Bogota`. Los contratos reciben fecha `YYYY-MM-DD` y hora `HH:mm`; las reglas de futuro y la creación de slots se evalúan con un `Clock` configurado para esa zona.
+
+La reserva bloquea las filas candidatas de `professional_slots` con `FOR UPDATE` dentro de la misma transacción que crea la cita y asigna los slots. Si falta un slot, los slots no son consecutivos o alguno ya tiene una cita, la operación termina con conflicto y no se crea una cita parcial. Las solicitudes especializadas `REQUESTED` retienen los slots; una decisión ADMIN `REJECTED` los libera en esa misma transacción, mientras que `APPROVED` los conserva.
+
+La afiliación inicial es opcional y está normalizada en `user_insurance_affiliations`; `users` no guarda nombres de EPS ni de plan. Al recibirse `insurancePlanId`, el plan debe existir y estar activo; de lo contrario el registro se revierte sin persistir un usuario parcial.
 
 ## DECISIÓN — 2026-09-22 · Modelo de identidad integrado
 
