@@ -27,7 +27,7 @@ Fecha de actualización: 2026-09-25.
 
 ## Calidad de hooks
 
-Los hooks versionados están configurados con `core.hooksPath=.githooks` en ambos repositorios. La prueba controlada de secreto ficticio se intentó en backend: antes de configurar el path, Git permitió un commit temporal, que fue retirado localmente sin publicarlo; después de configurarlo, Git intentó ejecutar el hook pero Git Bash falló antes de evaluarlo con `couldn't create signal pipe, Win32 error 5`. Por ello la evidencia FAIL/PASS permanece pendiente y debe repetirse en una terminal Windows sin esa restricción.
+El hook backend se configuró con `core.hooksPath=.githooks`. El 2026-09-30 se agregó temporalmente un archivo con el patrón ficticio `JWT_ACCESS_SECRET`; el hook bloqueó el commit con el mensaje `Se detectó un secreto potencial`. El archivo se retiró sin confirmarlo. La verificación PASS queda demostrada por las confirmaciones posteriores del incremento con el hook activo y suite Maven verde.
 
 ## Corrección de contrato cross-repo
 

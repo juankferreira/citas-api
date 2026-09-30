@@ -92,6 +92,26 @@ class SchedulingServiceIntegrationTest {
         assertThat(count("select count(*) from appointments a join appointment_statuses s on s.id=a.status_id where a.professional_id=? and a.specialty_id=? and a.scheduled_start_at=? and s.code='REQUESTED'",professional,specialized,LocalDateTime.of(date,LocalTime.of(8,30)))).isEqualTo(1);
         assertSingleAppointmentOnSlots(professional,location,LocalDateTime.of(date,LocalTime.of(8,30)),LocalDateTime.of(date,LocalTime.of(9,0)));
     }
+    @Test void rescheduleRetainsNewSlotAndApprovingSwapsItAtomically() {
+        String suffix=UUID.randomUUID().toString();
+        Long professional=scheduling.createProfessional("Reschedule","Professional","CC","RP"+suffix,"reschedule-prof-"+suffix+"@example.test","300","hash","RCP"+suffix,"RCL"+suffix);
+        Long owner=jdbc.queryForObject("select user_id from professionals where id=?",Long.class,professional);
+        Long specialty=scheduling.createSpecialty("RSG"+suffix,"General reprogramable "+suffix,30,true).id();
+        Long location=jdbc.queryForObject("select id from locations where active=true limit 1",Long.class);
+        scheduling.setProfessionalSpecialties(professional,List.of(specialty),specialty); scheduling.setProfessionalLocations(professional,List.of(location));
+        LocalDate date=LocalDate.now().plusDays(4); scheduling.createBlock(owner,location,date,LocalTime.of(8,0),LocalTime.of(10,0));
+        Long patient=user("reschedule-patient-"+suffix+"@example.test","RU"+suffix); Long admin=user("reschedule-admin-"+suffix+"@example.test","RA"+suffix);
+        SchedulingService.Appointment appointment=scheduling.reserve(patient,professional,location,specialty,LocalDateTime.of(date,LocalTime.of(8,0)),"Inicial");
+        Map<String,Object> request=scheduling.requestReschedule(patient,appointment.id(),LocalDateTime.of(date,LocalTime.of(8,30)));
+        Long requestId=((Number)request.get("id")).longValue();
+        assertThat(request.get("status")).isEqualTo("PENDING");
+        assertThat(scheduling.availability(location,specialty,professional,date)).noneMatch(a->a.startAt().equals(LocalDateTime.of(date,LocalTime.of(8,30))));
+        assertThat(jdbc.queryForObject("select scheduled_start_at from appointments where id=?",LocalDateTime.class,appointment.id())).isEqualTo(LocalDateTime.of(date,LocalTime.of(8,0)));
+        assertThat(scheduling.decideReschedule(admin,requestId,"APPROVE",null)).containsEntry("status","APPROVED");
+        assertThat(jdbc.queryForObject("select scheduled_start_at from appointments where id=?",LocalDateTime.class,appointment.id())).isEqualTo(LocalDateTime.of(date,LocalTime.of(8,30)));
+        assertThat(scheduling.availability(location,specialty,professional,date)).anyMatch(a->a.startAt().equals(LocalDateTime.of(date,LocalTime.of(8,0))));
+        assertThat(count("select count(*) from professional_slots where appointment_id=? and reschedule_request_id is not null",appointment.id())).isZero();
+    }
     private record Attempt(int status,String body) {}
     private List<Attempt> reserveConcurrently(Long patientA,Long patientB,Long professional,Long location,Long specialty,LocalDate date,LocalTime time) throws Exception {
         ExecutorService pool=Executors.newFixedThreadPool(2);

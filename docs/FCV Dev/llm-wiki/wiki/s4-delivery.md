@@ -19,5 +19,5 @@
 
 ## Evidencia local 2026-09-30
 
-- Backend: `mvn test` — PASS, 16 pruebas, incluyendo integración REST/persistencia con MySQL 8.4 en Testcontainers y Flyway V1–V3.
+- Backend: `mvn test` — PASS, 17 pruebas, incluyendo integración REST/persistencia con MySQL 8.4 en Testcontainers y Flyway V1–V3. La prueba S4 verifica que una reprogramación retiene su nueva franja, la oculta de disponibilidad y que la aprobación intercambia slots atómicamente.
 - Frontend: `npm run lint`, `npm test`, `npm run build` — PASS; 14 pruebas en Vitest.
