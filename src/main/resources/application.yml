@@ -30,3 +30,4 @@ app:
     webhook-enabled: ${N8N_WEBHOOK_ENABLED:false}
     webhook-url: ${N8N_WEBHOOK_URL:}
     webhook-bearer-token: ${N8N_WEBHOOK_BEARER_TOKEN:}
+    integration-api-key: ${N8N_INTEGRATION_API_KEY:}

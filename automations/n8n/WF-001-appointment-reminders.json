@@ -2,20 +2,12 @@
   "name": "WF-001 Appointment Reminders",
   "nodes": [
     { "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 24 }] } }, "name": "Schedule Trigger", "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2, "position": [0, 0] },
-    { "parameters": { "assignments": { "assignments": [
-      { "name": "patientEmail", "value": "juankferreira@gmail.com", "type": "string" },
-      { "name": "patientName", "value": "Juan Ferreira", "type": "string" },
-      { "name": "startAt", "value": "2026-10-01 08:00", "type": "string" },
-      { "name": "professionalName", "value": "admin admin", "type": "string" },
-      { "name": "specialtyName", "value": "Medicina General", "type": "string" },
-      { "name": "locationName", "value": "HIC", "type": "string" }
-    ] }, "options": {} }, "name": "Datos de prueba cita", "type": "n8n-nodes-base.set", "typeVersion": 3.5, "position": [224, 0] },
+    { "parameters": { "url": "https://REPLACE_WITH_PUBLIC_API/api/v1/integrations/n8n/appointments/upcoming", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendQuery": true, "queryParameters": { "parameters": [{ "name": "from", "value": "={{ $now.toFormat('yyyy-LL-dd') }}" }, { "name": "to", "value": "={{ $now.plus({ days: 1 }).toFormat('yyyy-LL-dd') }}" }] }, "options": {} }, "name": "Consultar citas próximas (API)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [224, 0] },
     { "parameters": { "resource": "draft", "subject": "Recordatorio de cita médica", "message": "=Hola {{ $json.patientName }},\n\nTe recordamos tu cita de {{ $json.specialtyName }} con {{ $json.professionalName }}.\n\nFecha y hora: {{ $json.startAt }}\nSede: {{ $json.locationName }}\n\nEste es un recordatorio generado en el entorno académico.", "options": { "sendTo": "={{ $json.patientEmail }}" } }, "name": "Preparar recordatorio (borrador Gmail)", "type": "n8n-nodes-base.gmail", "typeVersion": 2.2, "position": [448, 0] },
-    { "parameters": { "content": "## Nota WF-001\nLa muestra representa la cita sintética local #1. Antes de producción, sustituir este nodo por una consulta HTTP autenticada hacia citas-api mediante una URL HTTPS pública. Las credenciales no se exportan.", "height": 224, "width": 384 }, "name": "Nota de producción", "type": "n8n-nodes-base.stickyNote", "typeVersion": 1, "position": [16, -224] }
+    { "parameters": { "content": "## Configuración requerida\nReemplaza `https://REPLACE_WITH_PUBLIC_API` por el túnel HTTPS de citas-api. Configura Header Auth externo con `X-N8N-Integration-Key`; no exportes su valor.", "height": 224, "width": 500 }, "name": "Nota de producción", "type": "n8n-nodes-base.stickyNote", "typeVersion": 1, "position": [16, -224] }
   ],
-  "connections": { "Schedule Trigger": { "main": [[{ "node": "Datos de prueba cita", "type": "main", "index": 0 }]] }, "Datos de prueba cita": { "main": [[{ "node": "Preparar recordatorio (borrador Gmail)", "type": "main", "index": 0 }]] } },
+  "connections": { "Schedule Trigger": { "main": [[{ "node": "Consultar citas próximas (API)", "type": "main", "index": 0 }]] }, "Consultar citas próximas (API)": { "main": [[{ "node": "Preparar recordatorio (borrador Gmail)", "type": "main", "index": 0 }]] } },
   "active": false,
   "settings": { "executionOrder": "v1" },
-  "meta": { "template": true, "validatedManually": "2026-09-30", "credentialsExcluded": true },
-  "pinData": {}
+  "meta": { "template": true, "credentialsExcluded": true }
 }

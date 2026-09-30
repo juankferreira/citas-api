@@ -1,50 +1,13 @@
 {
   "name": "WF-003 Daily Operational Summary",
   "nodes": [
-    {
-      "parameters": {
-        "rule": {
-          "interval": [
-            { "triggerAtHour": 7 }
-          ]
-        }
-      },
-      "name": "Schedule Trigger",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.4,
-      "position": [64, 0]
-    },
-    {
-      "parameters": {
-        "jsCode": "const citas = [\n  {\n    sede: 'Hospital Internacional de Colombia (HIC)',\n    estado: 'APPROVED',\n    especialidad: 'Medicina General'\n  }\n];\n\nconst porSede = {};\nconst porEspecialidad = {};\n\nfor (const cita of citas) {\n  if (!porSede[cita.sede]) {\n    porSede[cita.sede] = { total: 0, APPROVED: 0, COMPLETED: 0, NO_SHOW: 0, CANCELLED: 0 };\n  }\n  porSede[cita.sede].total++;\n  if (porSede[cita.sede][cita.estado] !== undefined) porSede[cita.sede][cita.estado]++;\n  porEspecialidad[cita.especialidad] = (porEspecialidad[cita.especialidad] ?? 0) + 1;\n}\n\nconst resumenSedes = Object.entries(porSede)\n  .map(([sede, datos]) => `- ${sede}: ${datos.total} total | Aprobadas: ${datos.APPROVED} | Completadas: ${datos.COMPLETED} | No asistió: ${datos.NO_SHOW} | Canceladas: ${datos.CANCELLED}`)\n  .join('\\n');\nconst resumenEspecialidades = Object.entries(porEspecialidad)\n  .map(([especialidad, total]) => `- ${especialidad}: ${total}`)\n  .join('\\n');\n\nreturn [{ json: {\n  fecha: '2026-09-30',\n  totalCitas: citas.length,\n  resumenSedes,\n  resumenEspecialidades,\n  incidenciasApi: 'Sin incidencias de API.'\n} }];"
-      },
-      "name": "Construir resumen sintético",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [256, -112]
-    },
-    {
-      "parameters": {
-        "resource": "draft",
-        "subject": "=Resumen operativo diario — {{$json.fecha}}",
-        "message": "=Resumen operativo diario\\n\\nTotal de citas: {{$json.totalCitas}}\\n\\nPor sede:\\n{{$json.resumenSedes}}\\n\\nPor especialidad:\\n{{$json.resumenEspecialidades}}\\n\\nIncidencias:\\n{{$json.incidenciasApi}}\\n\\nDatos sintéticos del laboratorio. Este flujo no modifica citas.",
-        "options": {}
-      },
-      "name": "Preparar resumen (borrador Gmail)",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.2,
-      "position": [480, -112]
-    }
+    { "parameters": { "rule": { "interval": [{ "triggerAtHour": 7 }] } }, "name": "Schedule Trigger", "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.4, "position": [0, 0] },
+    { "parameters": { "url": "https://REPLACE_WITH_PUBLIC_API/api/v1/integrations/n8n/daily-summary", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendQuery": true, "queryParameters": { "parameters": [{ "name": "date", "value": "={{ $now.toFormat('yyyy-LL-dd') }}" }] }, "options": {} }, "name": "Consultar resumen diario (API)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [224, 0] },
+    { "parameters": { "jsCode": "const filas = $input.all().map(item => item.json);\nconst porSede = {}; const porEspecialidad = {};\nfor (const fila of filas) { const sede = porSede[fila.locationName] ??= { total: 0, APPROVED: 0, COMPLETED: 0, NO_SHOW: 0, CANCELLED: 0 }; sede.total += Number(fila.total); if (sede[fila.status] !== undefined) sede[fila.status] += Number(fila.total); porEspecialidad[fila.specialtyName] = (porEspecialidad[fila.specialtyName] ?? 0) + Number(fila.total); }\nconst resumenSedes = Object.entries(porSede).map(([nombre, datos]) => `- ${nombre}: ${datos.total} total | Aprobadas: ${datos.APPROVED} | Completadas: ${datos.COMPLETED} | No asistió: ${datos.NO_SHOW} | Canceladas: ${datos.CANCELLED}`).join('\\n') || '- Sin citas para la fecha.';\nconst resumenEspecialidades = Object.entries(porEspecialidad).map(([nombre, total]) => `- ${nombre}: ${total}`).join('\\n') || '- Sin especialidades con citas.';\nreturn [{ json: { fecha: $now.toFormat('yyyy-LL-dd'), totalCitas: filas.reduce((s, fila) => s + Number(fila.total), 0), resumenSedes, resumenEspecialidades, incidenciasApi: 'Sin incidencias de API.' } }];" }, "name": "Construir resumen", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [448, 0] },
+    { "parameters": { "resource": "draft", "subject": "=Resumen operativo diario — {{$json.fecha}}", "message": "=Resumen operativo diario\n\nTotal de citas: {{$json.totalCitas}}\n\nPor sede:\n{{$json.resumenSedes}}\n\nPor especialidad:\n{{$json.resumenEspecialidades}}\n\nIncidencias:\n{{$json.incidenciasApi}}", "options": {} }, "name": "Preparar resumen (borrador Gmail)", "type": "n8n-nodes-base.gmail", "typeVersion": 2.2, "position": [672, 0] }
   ],
-  "connections": {
-    "Schedule Trigger": {
-      "main": [[{ "node": "Construir resumen sintético", "type": "main", "index": 0 }]]
-    },
-    "Construir resumen sintético": {
-      "main": [[{ "node": "Preparar resumen (borrador Gmail)", "type": "main", "index": 0 }]]
-    }
-  },
+  "connections": { "Schedule Trigger": { "main": [[{ "node": "Consultar resumen diario (API)", "type": "main", "index": 0 }]] }, "Consultar resumen diario (API)": { "main": [[{ "node": "Construir resumen", "type": "main", "index": 0 }]] }, "Construir resumen": { "main": [[{ "node": "Preparar resumen (borrador Gmail)", "type": "main", "index": 0 }]] } },
   "active": false,
   "settings": { "executionOrder": "v1" },
-  "meta": { "credentialsExcluded": true, "validatedManually": "2026-09-30" }
+  "meta": { "template": true, "credentialsExcluded": true }
 }
