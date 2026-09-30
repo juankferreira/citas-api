@@ -26,3 +26,7 @@ app:
   cookie:
     secure: ${REFRESH_COOKIE_SECURE:true}
     same-site: ${REFRESH_COOKIE_SAME_SITE:None}
+  n8n:
+    webhook-enabled: ${N8N_WEBHOOK_ENABLED:false}
+    webhook-url: ${N8N_WEBHOOK_URL:}
+    webhook-bearer-token: ${N8N_WEBHOOK_BEARER_TOKEN:}

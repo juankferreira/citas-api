@@ -2,6 +2,7 @@ package co.com.fcv.training.citas.adapter.web;
 
 import co.com.fcv.training.citas.application.Ports;
 import co.com.fcv.training.citas.application.SchedulingService;
+import co.com.fcv.training.citas.adapter.n8n.N8nNotifier;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.http.HttpStatus;
@@ -26,8 +27,8 @@ class SchedulingController {
     record AppointmentRequest(@NotNull Long professionalId,@NotNull Long locationId,@NotNull Long specialtyId,@NotNull LocalDate date,@NotNull LocalTime startTime,@Size(max=500) String reason) {}
     record DecisionRequest(@NotBlank String decision,@Size(max=500) String reason) {}
     record RescheduleRequest(@NotNull LocalDate date,@NotNull LocalTime startTime) {}
-    private final SchedulingService scheduling; private final Ports.Passwords passwords;
-    SchedulingController(SchedulingService scheduling, Ports.Passwords passwords){this.scheduling=scheduling;this.passwords=passwords;}
+    private final SchedulingService scheduling; private final Ports.Passwords passwords; private final N8nNotifier notifier;
+    SchedulingController(SchedulingService scheduling, Ports.Passwords passwords,N8nNotifier notifier){this.scheduling=scheduling;this.passwords=passwords;this.notifier=notifier;}
     @GetMapping("/catalogs/{catalog}") List<Map<String,Object>> catalog(@PathVariable String catalog){return scheduling.catalog(catalog);}
     @GetMapping("/admin/specialties") @PreAuthorize("hasRole('ADMIN')") List<SchedulingService.Specialty> allSpecialties(){return scheduling.specialties(false);}
     @GetMapping("/specialties") List<SchedulingService.Specialty> specialties(){return scheduling.specialties(true);}
@@ -45,13 +46,14 @@ class SchedulingController {
     @GetMapping("/availability") @PreAuthorize("hasRole('USER')") List<SchedulingService.Available> availability(@RequestParam Long locationId,@RequestParam Long specialtyId,@RequestParam(required=false) Long professionalId,@RequestParam LocalDate date){return scheduling.availability(locationId,specialtyId,professionalId,date);}
     @PostMapping("/appointments") @PreAuthorize("hasRole('USER')") ResponseEntity<SchedulingService.Appointment> reserve(Authentication a,@Valid @RequestBody AppointmentRequest r){return ResponseEntity.status(HttpStatus.CREATED).body(scheduling.reserve(user(a),r.professionalId(),r.locationId(),r.specialtyId(),LocalDateTime.of(r.date(),r.startTime()),r.reason()));}
     @GetMapping("/appointments/mine") @PreAuthorize("hasRole('USER')") List<Map<String,Object>> mine(Authentication a,@RequestParam(required=false) String status,@RequestParam(required=false) LocalDate date){return scheduling.mine(user(a),status,date);}
-    @PostMapping("/appointments/{id}/cancel") @PreAuthorize("hasRole('USER')") SchedulingService.Appointment cancel(Authentication a,@PathVariable Long id){return scheduling.cancel(user(a),id);}
+    @PostMapping("/appointments/{id}/cancel") @PreAuthorize("hasRole('USER')") SchedulingService.Appointment cancel(Authentication a,@PathVariable Long id){var result=scheduling.cancel(user(a),id);notifier.statusChanged(result.id(),result.status(),"USER");return result;}
     @PostMapping("/appointments/{id}/reschedule") @PreAuthorize("hasRole('USER')") ResponseEntity<Map<String,Object>> reschedule(Authentication a,@PathVariable Long id,@Valid @RequestBody RescheduleRequest r){return ResponseEntity.status(HttpStatus.CREATED).body(scheduling.requestReschedule(user(a),id,LocalDateTime.of(r.date(),r.startTime())));}
     @GetMapping("/appointments/{id}/history") @PreAuthorize("hasAnyRole('USER','PROFESSIONAL','ADMIN')") List<Map<String,Object>> history(Authentication a,@PathVariable Long id){return scheduling.history(user(a),id,a.getAuthorities().stream().anyMatch(x->x.getAuthority().equals("ROLE_ADMIN")));}
     @GetMapping("/professional/appointments") @PreAuthorize("hasRole('PROFESSIONAL')") List<Map<String,Object>> agenda(Authentication a,@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(required=false) Long locationId){return scheduling.agenda(user(a),from,to,locationId);}
     @PostMapping("/professional/appointments/{id}/close") @PreAuthorize("hasRole('PROFESSIONAL')") SchedulingService.Appointment close(Authentication a,@PathVariable Long id,@Valid @RequestBody DecisionRequest r){return scheduling.close(user(a),id,r.decision().trim().toUpperCase(Locale.ROOT));}
     @GetMapping("/admin/appointments/pending-specialized") @PreAuthorize("hasRole('ADMIN')") List<Map<String,Object>> pending(){return scheduling.pending();}
-    @PostMapping("/admin/appointments/{id}/decision") @PreAuthorize("hasRole('ADMIN')") SchedulingService.Appointment decide(Authentication a,@PathVariable Long id,@Valid @RequestBody DecisionRequest r){return scheduling.decide(user(a),id,r.decision().trim().toUpperCase(Locale.ROOT),r.reason());}
+    @GetMapping("/admin/appointments/upcoming") @PreAuthorize("hasRole('ADMIN')") List<Map<String,Object>> upcoming(@RequestParam(required=false) LocalDate from,@RequestParam(required=false) LocalDate to,@RequestParam(required=false) Long locationId){return scheduling.upcoming(from,to,locationId);}
+    @PostMapping("/admin/appointments/{id}/decision") @PreAuthorize("hasRole('ADMIN')") SchedulingService.Appointment decide(Authentication a,@PathVariable Long id,@Valid @RequestBody DecisionRequest r){var result=scheduling.decide(user(a),id,r.decision().trim().toUpperCase(Locale.ROOT),r.reason());notifier.statusChanged(result.id(),result.status(),"ADMIN");return result;}
     @GetMapping("/admin/reschedules/pending") @PreAuthorize("hasRole('ADMIN')") List<Map<String,Object>> pendingReschedules(){return scheduling.pendingReschedules();}
     @PostMapping("/admin/reschedules/{id}/decision") @PreAuthorize("hasRole('ADMIN')") Map<String,Object> decideReschedule(Authentication a,@PathVariable Long id,@Valid @RequestBody DecisionRequest r){return scheduling.decideReschedule(user(a),id,r.decision().trim().toUpperCase(Locale.ROOT),r.reason());}
     private Long user(Authentication a){try{return Long.valueOf(a.getName());}catch(Exception e){throw new IllegalStateException("Principal inválido");}}
