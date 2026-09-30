@@ -15,6 +15,7 @@ Repositorio backend del proyecto. **No contiene implementación de negocio inici
 - `docs/FCV Dev/llm-wiki/`: única LLM Wiki global del workspace.
 - `docs/FCV Dev/subagents/`: catálogo operativo de subagentes del orquestador.
 - `automations/n8n/`: JSON exportados en S5/S6.
+- `docs/LABORATORY_DEMO_SEED.md`: cuentas y cita sintética reproducibles para la revisión del curso.
 
 Lee el PRD en la carpeta raíz antes de continuar Spring Boot.
 
