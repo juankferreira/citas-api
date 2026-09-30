@@ -1,0 +1,45 @@
+{
+  "name": "WF-001 — Recordatorio de citas próximas",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] } },
+      "id": "schedule-reminders",
+      "name": "Cada hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": { "url": "={{ $env.CITAS_API_URL + '/api/v1/automations/appointments/reminders?hours=24' }}", "sendHeaders": true, "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.CITAS_AUTOMATION_TOKEN }}" }] }, "options": {} },
+      "id": "get-reminders",
+      "name": "Consultar citas APPROVED",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ $json.patientEmail }}", "operator": { "type": "string", "operation": "isNotEmpty" } }] } },
+      "id": "has-email",
+      "name": "¿Hay destinatario?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": { "sendTo": "={{ $json.patientEmail }}", "subject": "Recordatorio de cita médica", "message": "=Recuerda tu cita el {{ $json.startAt }} en {{ $json.locationName }}.", "options": {} },
+      "id": "send-email",
+      "name": "Enviar recordatorio",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [720, -80],
+      "credentials": { "gmailOAuth2": { "id": "REEMPLAZAR_EN_N8N", "name": "Gmail de laboratorio" } }
+    }
+  ],
+  "connections": { "Cada hora": { "main": [[{ "node": "Consultar citas APPROVED", "type": "main", "index": 0 }]] }, "Consultar citas APPROVED": { "main": [[{ "node": "¿Hay destinatario?", "type": "main", "index": 0 }]] }, "¿Hay destinatario?": { "main": [[{ "node": "Enviar recordatorio", "type": "main", "index": 0 }], []] } },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "template-wf-001",
+  "meta": { "template": true, "requires": ["CITAS_API_URL", "CITAS_AUTOMATION_TOKEN", "Gmail OAuth"] },
+  "pinData": {}
+}
