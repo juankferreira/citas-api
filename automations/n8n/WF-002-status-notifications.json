@@ -1,44 +1,21 @@
 {
-  "name": "WF-002 — Notificación por cambio de estado",
+  "name": "WF-002 Status Notifications",
   "nodes": [
-    {
-      "parameters": { "httpMethod": "POST", "path": "citas/status-change", "responseMode": "responseNode", "options": {} },
-      "id": "status-webhook",
-      "name": "Evento desde citas-api",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [0, 0]
-    },
-    {
-      "parameters": { "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ ['APPROVED','REJECTED','CANCELLED'].includes($json.body.status) }}", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }] } },
-      "id": "valid-event",
-      "name": "Validar evento",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [240, 0]
-    },
-    {
-      "parameters": { "sendTo": "={{ $json.body.patientEmail }}", "subject": "Actualización de tu cita", "message": "=Tu cita cambió a estado: {{ $json.body.status }}.", "options": {} },
-      "id": "status-email",
-      "name": "Notificar por correo",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [480, -80],
-      "credentials": { "gmailOAuth2": { "id": "REEMPLAZAR_EN_N8N", "name": "Gmail de laboratorio" } }
-    },
-    {
-      "parameters": { "respondWith": "json", "responseBody": "={\"accepted\":true}", "options": {} },
-      "id": "response-ok",
-      "name": "Responder 202",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [720, 0]
-    }
+    { "parameters": { "httpMethod": "POST", "path": "citas/status-change", "responseMode": "responseNode", "options": {} }, "name": "Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2.1, "position": [0, 0] },
+    { "parameters": { "assignments": { "assignments": [
+      { "name": "patientEmail", "value": "workflow-test-recipient@example.invalid", "type": "string" },
+      { "name": "patientName", "value": "Usuario de prueba", "type": "string" },
+      { "name": "status", "value": "APPROVED", "type": "string" },
+      { "name": "appointmentId", "value": "DEMO-001", "type": "string" },
+      { "name": "eventType", "value": "APPOINTMENT_STATUS_CHANGED", "type": "string" }
+    ] }, "options": {} }, "name": "Datos de prueba de evento", "type": "n8n-nodes-base.set", "typeVersion": 3.5, "position": [224, 0] },
+    { "parameters": { "resource": "draft", "subject": "Actualización de tu cita", "message": "=Hola {{ $json.patientName }}, tu cita {{ $json.appointmentId }} cambió al estado {{ $json.status }}.", "options": { "sendTo": "={{ $json.patientEmail }}" } }, "name": "Preparar notificación (borrador Gmail)", "type": "n8n-nodes-base.gmail", "typeVersion": 2.2, "position": [448, 0] },
+    { "parameters": { "respondWith": "json", "responseBody": "{\"accepted\":true}", "options": {} }, "name": "Responder al webhook", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.5, "position": [672, 0] },
+    { "parameters": { "content": "## Nota WF-002\nFlujo validado manualmente como borrador Gmail el 2026-09-30. Antes de producción, citas-api debe enviar un payload autenticado al webhook y se debe reemplazar el nodo de datos de prueba. Las credenciales no se exportan.", "height": 224, "width": 832 }, "name": "Nota de producción", "type": "n8n-nodes-base.stickyNote", "typeVersion": 1, "position": [-32, -96] }
   ],
-  "connections": { "Evento desde citas-api": { "main": [[{ "node": "Validar evento", "type": "main", "index": 0 }]] }, "Validar evento": { "main": [[{ "node": "Notificar por correo", "type": "main", "index": 0 }], [{ "node": "Responder 202", "type": "main", "index": 0 }]] }, "Notificar por correo": { "main": [[{ "node": "Responder 202", "type": "main", "index": 0 }]] } },
+  "connections": { "Webhook": { "main": [[{ "node": "Datos de prueba de evento", "type": "main", "index": 0 }]] }, "Datos de prueba de evento": { "main": [[{ "node": "Preparar notificación (borrador Gmail)", "type": "main", "index": 0 }]] }, "Preparar notificación (borrador Gmail)": { "main": [[{ "node": "Responder al webhook", "type": "main", "index": 0 }]] } },
   "active": false,
   "settings": { "executionOrder": "v1" },
-  "versionId": "template-wf-002",
-  "meta": { "template": true, "requires": ["Public webhook URL", "Gmail OAuth"] },
+  "meta": { "template": true, "validatedManually": "2026-09-30", "credentialsExcluded": true },
   "pinData": {}
 }
