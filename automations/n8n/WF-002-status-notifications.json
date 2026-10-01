@@ -3,15 +3,15 @@
   "nodes": [
     { "parameters": { "httpMethod": "POST", "path": "citas/status-change", "responseMode": "responseNode", "options": {} }, "name": "Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2.1, "position": [0, 0] },
     { "parameters": { "assignments": { "assignments": [
-      { "name": "patientEmail", "value": "workflow-test-recipient@example.invalid", "type": "string" },
-      { "name": "patientName", "value": "Usuario de prueba", "type": "string" },
+      { "name": "patientEmail", "value": "juankferreira@gmail.com", "type": "string" },
+      { "name": "patientName", "value": "Juan Ferreira", "type": "string" },
       { "name": "status", "value": "APPROVED", "type": "string" },
-      { "name": "appointmentId", "value": "DEMO-001", "type": "string" },
+      { "name": "appointmentId", "value": "1", "type": "string" },
       { "name": "eventType", "value": "APPOINTMENT_STATUS_CHANGED", "type": "string" }
     ] }, "options": {} }, "name": "Datos de prueba de evento", "type": "n8n-nodes-base.set", "typeVersion": 3.5, "position": [224, 0] },
     { "parameters": { "resource": "draft", "subject": "Actualización de tu cita", "message": "=Hola {{ $json.patientName }}, tu cita {{ $json.appointmentId }} cambió al estado {{ $json.status }}.", "options": { "sendTo": "={{ $json.patientEmail }}" } }, "name": "Preparar notificación (borrador Gmail)", "type": "n8n-nodes-base.gmail", "typeVersion": 2.2, "position": [448, 0] },
     { "parameters": { "respondWith": "json", "responseBody": "{\"accepted\":true}", "options": {} }, "name": "Responder al webhook", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.5, "position": [672, 0] },
-    { "parameters": { "content": "## Nota WF-002\nFlujo validado manualmente como borrador Gmail el 2026-09-30. Antes de producción, citas-api debe enviar un payload autenticado al webhook y se debe reemplazar el nodo de datos de prueba. Las credenciales no se exportan.", "height": 224, "width": 832 }, "name": "Nota de producción", "type": "n8n-nodes-base.stickyNote", "typeVersion": 1, "position": [-32, -96] }
+    { "parameters": { "content": "## Nota WF-002\nLa muestra representa la cita sintética local #1. En ejecución real, el webhook autenticado recibe el cambio de estado desde citas-api; las credenciales no se exportan.", "height": 224, "width": 832 }, "name": "Nota de producción", "type": "n8n-nodes-base.stickyNote", "typeVersion": 1, "position": [-32, -96] }
   ],
   "connections": { "Webhook": { "main": [[{ "node": "Preparar notificación (borrador Gmail)", "type": "main", "index": 0 }]] }, "Preparar notificación (borrador Gmail)": { "main": [[{ "node": "Responder al webhook", "type": "main", "index": 0 }]] } },
   "active": false,
